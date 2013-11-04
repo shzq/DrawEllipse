@@ -49,7 +49,7 @@ public class DrawEllipse extends JApplet {
 	// Parameters for drawing arcs
 	private static double R; // Radius of curvature
     private static Arc2D arc = new Arc2D.Double();
-	
+	private static Line2D line;
     
 	// Draw axis
 	private static Point2D origin;
@@ -65,6 +65,8 @@ public class DrawEllipse extends JApplet {
         //
 	    g2.setStroke(stroke);
 	    g2.draw(arc);
+	    if (line != null)
+	    	g2.draw(line);
 	}
 	
 	public static void main(String arg[]) {
@@ -126,16 +128,16 @@ public class DrawEllipse extends JApplet {
 		    // CXo is the sum of weighted distance at end of arc
 		    double CXo;
 		    double curveAngle = 0.0;
-		    Point2D endOfArc;
+		    Point2D X1;
 		    
 		    do {
 		    	curveAngle += 1;
 		    	CXo = 0;
 		    	arc.setArcByCenter(centerOfCircleOfCurvature.getX(), centerOfCircleOfCurvature.getY(), R, 
 		    			-startAngle, curveAngle, Arc2D.OPEN);
-		    	endOfArc = arc.getEndPoint();
-		    	Vector<Vector2D> XoFi = Calculate.XFi(endOfArc, foci);
-		    	CXo = Calculate.roundToTwoD( Calculate.C(XoFi, foci) );
+		    	X1 = arc.getEndPoint();
+		    	Vector<Vector2D> X1Fi = Calculate.XFi(X1, foci);
+		    	CXo = Calculate.roundToTwoD( Calculate.C(X1Fi, foci) );
 		    } while (CXo == C);
 		   
 		    System.out.println("C = " + C);
@@ -143,32 +145,27 @@ public class DrawEllipse extends JApplet {
 		    
 		    // Our arc is of curveAngle - 1.
 		    curveAngle -= 1;
-		    // But will there be a case where curveAngle = 0. This will cause our program not able to progress
+		    // But will there be a case where curveAngle = 0. Has to extrapolate new point
 		    if (curveAngle == 0) {
-		    	// Calculate new point for end of arc
-		    	endOfArc = Calculate.newEndOfArc(X, normalizedU, C);
-		    	System.out.println("new End of arc = " + endOfArc);
-		    	// Now we need to use the setArcByTangents method to define the arc
-		    	// p1 = start of arc, p2 = I call it the opposite of the center of curvature, p3 = end of arc
-		    	// p1 = start of arc = previous end of arc = X
-		       	arc.setArcByTangent(X, Calculate.getP2(X, endOfArc, centerOfCircleOfCurvature), endOfArc, R);
-				double l1 = Calculate.vectorBetweenTwoPoints(X, endOfArc).norm()/2;
-				double l2 = Calculate.vectorBetweenTwoPoints(centerOfCircleOfCurvature, endOfArc).norm();
-				curveAngle += 2*Math.atan(l1/l2); // in radians
-				System.out.println("new Curve angle = " + curveAngle);
-		    } else 		    
+		    	// We set this new point to be collinear with the previous end of arc and radius.
+		    	X1 = Calculate.newStartOfArc(X, normalizedU, C);
+		    	System.out.println("new End of arc = " + X1);
+		    	// Draw a line between previous end of arc to this new point
+		    	line = new Line2D.Double(X.getX(), X.getY(), X1.getX(), X1.getY());
+		    	X = X1;
+		    } else {		    
 		    	arc.setArcByCenter(centerOfCircleOfCurvature.getX(), centerOfCircleOfCurvature.getY(), R, 
 	    			-startAngle, curveAngle, Arc2D.OPEN);
-		    
-		    arcs.add(arc);
-		    totalAngle += curveAngle;
-		    System.out.println("Total angle = " + totalAngle);
-		    endOfArc = arc.getEndPoint();
-		    X = endOfArc;
-		    
-		    System.out.println("StartofArc = " + arc.getStartPoint());
-		    System.out.println("EndofArc = " + endOfArc);
-		    System.out.println("curveAngle = " + curveAngle);
+		    	arcs.add(arc);
+			    totalAngle += curveAngle;
+			    System.out.println("Total angle = " + totalAngle);
+			    X1 = arc.getEndPoint();
+			    X = X1;
+			    
+			    System.out.println("StartofArc = " + arc.getStartPoint());
+			    System.out.println("EndofArc = " + X1);
+			    System.out.println("curveAngle = " + curveAngle);
+		    }
 		    
 		    f.repaint();
 		} while (totalAngle < 360);
@@ -265,8 +262,8 @@ private static class Calculate {
 			return p2;
 		}
 		
-		// We determine the new start point of the next arc that will give the same C (only to the accuracy of zero decimal place)
-		public static Point2D newEndOfArc(Point2D X, Vector2D normalizedU, double C) {
+		// Extrapolate points around X that gives the same C (to zero decimal places only)
+		public static Point2D newStartOfArc(Point2D X, Vector2D normalizedU, double C) {
 			
 			int id = 0;
 			Point2D newArcStartPoint;
